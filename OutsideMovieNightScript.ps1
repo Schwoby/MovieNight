@@ -38,7 +38,7 @@ try {
             $file1 = Join-Path $movieVideoFolder $IntroClip
             $file2 = Join-Path $movieFolder $mainMovie
             $file3 = if ($isLast) {
-                Join-Path $movieVideoFolder $EndClip1
+                Join-Path $movieVideoFolder $EndClip2
 				$CurlRun3 = $CurlOption3
             } else {
                 Join-Path $movieVideoFolder $EndClip1
