@@ -1,55 +1,107 @@
-$MovieName1 = 'ERNEST SCARED STUPID.mp4'
-$MovieName2 = 'FREE GUY.mp4'
-$MovieTimeOffSet = 150
-$DoubleFeatureIntermission = 600
+$videoFolder = "C:\Users\Kurt Schwob\Videos"
+$movieFolder = Join-Path $videoFolder "Movies"
+$movieVideoFolder = Join-Path $videoFolder "Videos"
+$movieListPath = Join-Path $videoFolder "MovieList.txt"
+$MovieTimeOffSet = 300
+$Intermission = 600
 
+# Webhook call for start notification
+$CurlRun1 = { curl.exe --max-time 2 -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightStart }
+$CurlRun2 = { curl.exe --max-time 2 -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightLightsOn }
 
+# Minimize All Windows
+$Shell = New-Object -ComObject "Shell.Application"
+$Shell.MinimizeAll()
 
+try {
+    $movies = @(Get-Content -Path $movieListPath)
+    $lastIndex = $movies.Count - 1
 
+	&$CurlRun1
+    foreach ($i in 0..$lastIndex) {
+        $mainMovie = $movies[$i]
+        $isLast = ($i -eq $lastIndex)
 
-curl.exe -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightStart
-$filePath = Join-Path (Get-Location).Path 'Movies'
-$shell = New-Object -COMObject shell.Application
-$shellfolder = $shell.Namespace($filePath)
-$fullPath1 = Join-Path $filePath $MovieName1
-$MovieTime1 = $shellfolder.GetDetailsOf($shellfolder.ParseName($MovieName1), 27)
-$MovieTimeOffSet1 = $MovieTimeOffSet
-$MovieTimeDelay1 = [TimeSpan]::Parse($MovieTime1).TotalSeconds - $MovieTimeOffSet1
-if ( $MovieTimeDelay1 -lt $MovieTimeOffSet1 ) {
-	$MovieTimeOffSet1 = [TimeSpan]::Parse($MovieTime1).TotalSeconds
+        try {
+            $file1 = Join-Path $movieVideoFolder "MovieNight.mp4"
+            $file2 = Join-Path $movieFolder $mainMovie
+            $file3 = if ($isLast) {
+                Join-Path $movieVideoFolder "FerrisBueller.mp4"
+				$CurlRun3 = { curl.exe --max-time 2 -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightLightsOff }
+            } else {
+                Join-Path $movieVideoFolder "AfterParty.mp4"
+				$CurlRun3 = { curl.exe --max-time 2 -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightDoubleFeatureStart }
+            }
+
+            # Launch MPC-HC once with all three files in one call and capture the process
+            $mpcProcess = Start-Process "mpc-hc64" -ArgumentList "`"$file1`"", "`"$file2`"", "`"$file3`"", "/play" -PassThru
+
+            # Calculate and display total playlist duration
+            $shell = New-Object -ComObject Shell.Application
+            $items = @($file1, $file2, $file3)
+            $totalSeconds = 0
+            foreach ($file in $items) {
+                $folder = $shell.Namespace((Split-Path $file))
+                $item = $folder.ParseName((Split-Path $file -Leaf))
+                $duration = $folder.GetDetailsOf($item, 27)  # 27 = Length
+                if ($duration -and $duration -match "(\d+):(\d+):(\d+)") {
+                    $h = [int]$matches[1]
+                    $m = [int]$matches[2]
+                    $s = [int]$matches[3]
+                } elseif ($duration -and $duration -match "(\d+):(\d+)") {
+                    $h = 0
+                    $m = [int]$matches[1]
+                    $s = [int]$matches[2]
+                } else {
+                    $h = $m = $s = 0
+                }
+                $totalSeconds += ($h * 3600 + $m * 60 + $s)
+            }
+            Write-Host "Playlist duration: $totalSeconds seconds"
+
+            # Optional fullscreen
+            [void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms')
+            Start-Sleep -Seconds 3  # Give player time to start before sending keys
+            [System.Windows.Forms.SendKeys]::SendWait("{F11}")
+
+            # Sleep for duration of Videos
+            if ($totalSeconds -lt $MovieTimeOffSet) {
+                $MovieOffSet = $totalSeconds
+                $totalSeconds = 0
+            } else {
+                $totalSeconds = $totalSeconds - $MovieTimeOffSet
+                $MovieOffSet = $MovieTimeOffSet
+			}
+			Start-Sleep -Seconds 1
+            Write-Host "Main Play duration: $totalSeconds"
+            Start-Sleep -Seconds $totalSeconds
+			&$CurlRun2
+            Write-Host "Offset duration: $MovieOffSet"
+            Start-Sleep -Seconds $MovieOffSet
+            Stop-Process -Name "mpc-hc64" -ErrorAction SilentlyContinue
+
+            # Wait for MPC-HC to exit naturally (end of playlist)
+            do {
+                Start-Sleep -Seconds 1
+            } while (-not $mpcProcess.HasExited)
+
+			# Intermission
+			Start-Process C:\Windows\System32\MarineAquarium3.scr
+            Start-Sleep -Seconds $Intermission
+			&$CurlRun3
+			Stop-Process -Name "MarineAquarium3.scr" -ErrorAction SilentlyContinue
+        }
+        catch {
+            Write-Host ("Error processing movie '{0}' at index {1}:" -f $mainMovie, $i)
+            Write-Host $_
+        }
+    }
 }
-Start-Process $fullPath1 -WindowStyle maximized ; Start-Sleep -seconds 3 ; [void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') ; [System.Windows.Forms.SendKeys]::SendWait("{F11}")
-clear
-Start-Sleep -Seconds $MovieTimeDelay1
-curl.exe -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightLightsOn
-Start-Sleep -Seconds $MovieTimeOffSet1
-if ( $MovieName2 -ne '' ) {
-	Stop-Process -Name "mpc-hc64"
-	Start-Sleep -Seconds 1
-	$AfterParty = Join-Path (Get-Location).Path 'AfterParty.mp4'
-	Start-Process $AfterParty -WindowStyle maximized ; Start-Sleep -seconds 3 ; [void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') ; [System.Windows.Forms.SendKeys]::SendWait("{F11}")
-	Start-Sleep -Seconds 15
-	Stop-Process -Name "mpc-hc64"
-	Start-Process C:\Windows\System32\MarineAquarium3.scr
-	$fullPath2 = Join-Path $filePath $MovieName2
-	$MovieTime2 = $shellfolder.GetDetailsOf($shellfolder.ParseName($MovieName2), 27)
-	$MovieTimeOffSet2 = $MovieTimeOffSet
-	$MovieTimeDelay2 = [TimeSpan]::Parse($MovieTime2).TotalSeconds - $MovieTimeOffSet2
-	if ( $MovieTimeDelay2 -lt $MovieTimeOffSet2 ) {
-		$MovieTimeOffSet2 = [TimeSpan]::Parse($MovieTime2).TotalSeconds
-	}
-	Start-Sleep -Seconds $DoubleFeatureIntermission
-	curl.exe -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightDoubleFeatureStart
-	Stop-Process -Name "MarineAquarium3.scr"
-	Start-Process $fullPath2 -WindowStyle maximized ; Start-Sleep -seconds 3 ; [void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') ; [System.Windows.Forms.SendKeys]::SendWait("{F11}")
-	Start-Sleep -Seconds $MovieTimeDelay2
-	curl.exe -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightLightsOn
-	Start-Sleep -Seconds $MovieTimeOffSet2
+catch {
+    Write-Host "Fatal error:"
+    Write-Host $_
 }
-Stop-Process -Name "mpc-hc64"
-Start-Process C:\Windows\System32\MarineAquarium3.scr
-Echo "Trun Off Outside Lights"
-Pause
-curl.exe -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightLightsOff
-shutdown -s -f -y -t 30
-#shutdown -a
+finally {
+	shutdown -s -f -y -t 1	# start shutdown
+	# shutdown -a	# cancel shutdown
+}
