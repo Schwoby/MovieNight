@@ -1,13 +1,25 @@
+# Variables
 $videoFolder = "C:\Users\Kurt Schwob\Videos"
 $movieFolder = Join-Path $videoFolder "Movies"
 $movieVideoFolder = Join-Path $videoFolder "Videos"
 $movieListPath = Join-Path $videoFolder "MovieList.txt"
 $MovieTimeOffSet = 300
 $Intermission = 600
+$IntroClip = "MovieNight.mp4"
+$EndClip1 = "AfterParty.mp4"
+$EndClip2 = "FerrisBueller.mp4"
+$CurlOption1 = { curl.exe --max-time 2 -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightStart }
+$CurlOption2 = { curl.exe --max-time 2 -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightLightsOn }
+$CurlOption3 = { curl.exe --max-time 2 -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightLightsOff }
+$CurlOption4 = { curl.exe --max-time 2 -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightDoubleFeatureStart }
+
+
+
+
 
 # Webhook call for start notification
-$CurlRun1 = { curl.exe --max-time 2 -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightStart }
-$CurlRun2 = { curl.exe --max-time 2 -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightLightsOn }
+$CurlRun1 = $CurlOption1
+$CurlRun2 = $CurlOption2
 
 # Minimize All Windows
 $Shell = New-Object -ComObject "Shell.Application"
@@ -23,14 +35,14 @@ try {
         $isLast = ($i -eq $lastIndex)
 
         try {
-            $file1 = Join-Path $movieVideoFolder "MovieNight.mp4"
+            $file1 = Join-Path $movieVideoFolder $IntroClip
             $file2 = Join-Path $movieFolder $mainMovie
             $file3 = if ($isLast) {
-                Join-Path $movieVideoFolder "FerrisBueller.mp4"
-				$CurlRun3 = { curl.exe --max-time 2 -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightLightsOff }
+                Join-Path $movieVideoFolder $EndClip1
+				$CurlRun3 = $CurlOption3
             } else {
-                Join-Path $movieVideoFolder "AfterParty.mp4"
-				$CurlRun3 = { curl.exe --max-time 2 -d GET http://192.168.144.13:8123/api/webhook/BackyardMovieNightDoubleFeatureStart }
+                Join-Path $movieVideoFolder $EndClip1
+				$CurlRun3 = $CurlOption4
             }
 
             # Launch MPC-HC once with all three files in one call and capture the process
