@@ -11,7 +11,7 @@ public class User32 {
 
 Add-Type -AssemblyName System.Windows.Forms
 
-$rootFolder = "C:\Users\Kurt Schwob\Videos"
+$rootFolder = "C:\Users\Schwoby\Videos"
 $moviesFolder = Join-Path $rootFolder "Movies"
 $movieListPath = Join-Path $rootFolder "MovieList.txt"
 $saveFolder = $rootFolder
