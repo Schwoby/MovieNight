@@ -1,5 +1,5 @@
 # Variables
-$videoFolder = "C:\Users\Kurt Schwob\Videos"
+$videoFolder = "C:\Users\Schwoby\Videos"
 $movieFolder = Join-Path $videoFolder "Movies"
 $movieVideoFolder = Join-Path $videoFolder "Videos"
 $movieListPath = Join-Path $videoFolder "MovieList.txt"
