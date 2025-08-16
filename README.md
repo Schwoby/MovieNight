@@ -113,3 +113,7 @@ This PowerShell script automates taking screenshots of videos using [MPC-HC](htt
 - PowerShell
 - `System.Drawing` (GDI+)
 - `System.Windows.Forms` (for SendKeys)
+
+## Disclaimer
+1. This is a personal project provided **"as-is"** with no warranty or guarantee of any kind. Use it at your own risk.
+2. This project is not affiliated with, endorsed by, or sponsored by Twitch Interactive, Inc. Twitch and all related trademarks are the property of their respective owners. Use of Twitch services is subject to Twitch's terms of service and licensing agreements. Users are responsible for complying with Twitch's policies when using this software.
