@@ -1,119 +1,133 @@
-# Backyard Movie Night
-- OutsideMovieNightScript.ps1 (Required - Script to run movie night)
-- MovieList.txt (Required - Text file containing all movie file names)
-- VideoFormat.ps1 (Optional - Helper script for screen setup)
+# Backyard Movie Night Scripts
 
-## Backyard Movie Night Automation Script
+This repository contains a set of PowerShell scripts designed to automate an outdoor movie night experience.
+They handle playlist creation, video playback, lighting controls, intermissions, and video formatting for consistent display.
 
-This PowerShell script automates a "Backyard Movie Night" using [MPC-HC](https://mpc-hc.org/) as the media player, along with webhook triggers for a smart home setup. It plays a playlist of movies, handles lighting cues, manages intermissions, and ensures a clean system shutdown.
+---
 
-### Features
+## 📂 Files Overview
 
-- Reads a list of movie filenames from `MovieList.txt`
-- Plays an intro clip, a main feature, and an end clip per movie
-- Sends webhooks to a Home Assistant instance for light control and event tracking:
-  - `BackyardMovieNightStart`
-  - `BackyardMovieNightLightsOn`
-  - `BackyardMovieNightLightsOff`
-  - `BackyardMovieNightDoubleFeatureStart`
-- Calculates and displays total playlist duration
-- Automatically enters fullscreen mode in MPC-HC
-- Displays a screensaver during intermission
-- Schedules system shutdown after the final movie ends
+### 1. `_OutsideMovieNightScript.ps1`
+Main automation script for running the movie night.
 
-### Configuration
+- **Lighting Control Hooks**
+  - `$CurlRun1`, `$CurlRun2`, `$CurlRun3Option1`, `$CurlRun3Option2` are placeholders for Home Assistant (or other smart lighting) webhooks.
+  - They can be defined in `Variables.ps1` to control lights before, during, and after movies.
 
-- **Movie folders**:
-  - Movies: `C:\Users\Schwoby\Videos\Movies`
-  - Intro/Outro clips: `C:\Users\Schwoby\Videos\Videos`
-- **Required files**:
-  - `MovieList.txt`: One movie filename per line
-  - Intro clip: `MovieNight.mp4`
-  - End clips: `AfterParty.mp4`, `FerrisBueller.mp4`
-- **Time settings**:
-  - Lights-on offset: `300 seconds` before end of playback
-  - Intermission: `600 seconds` between movies
-- **Webhooks**:
-  - Assumes Home Assistant is accessible at `http://192.168.144.13:8123`
+- **Variable Loading**
+  - Loads external settings from `Variables.ps1`.
 
-### Dependencies
+- **Window Management**
+  - Minimizes all windows before playback using `Shell.Application`.
 
-- [MPC-HC](https://mpc-hc.org/)
-- PowerShell
-- `curl.exe` (included with Windows or installable via [curl.se](https://curl.se/windows/))
-- [Marine Aquarium screensaver](https://live.serenescreen.com/v2/) (`MarineAquarium3.scr`)
+- **Movie & Clip Selection**
+  - Reads lists of intro, intermission, and end clips from text files.
+  - Randomly selects one clip from each category if available.
+  - Builds a playlist with:
+    - An intro clip (optional)
+    - The main movie
+    - Either an intermission clip or end clip depending on movie position
 
-### Behavior Overview
+- **Media Player Integration**
+  - Launches `mpc-hc64` with a playlist in fullscreen mode.
+  - Calculates total playlist duration by reading metadata from the files.
+  - Adjusts sleep timers with an offset (`$MovieTimeOffSet`) to trigger lighting events before playback ends.
+  - Waits for MPC-HC to fully exit before continuing.
 
-1. Minimizes all windows.
-2. Triggers the `BackyardMovieNightStart` webhook.
-3. For each movie:
-   - Plays the intro, main movie, and end clip.
-   - Sends lighting webhooks based on whether the movie is last in the list.
-   - Calculates the duration and turns on lights shortly before the movie ends.
-   - Waits for the movie player to close.
-   - Displays a screensaver for intermission.
-   - Sends either a "LightsOff" or "DoubleFeatureStart" webhook.
-4. After all movies are done:
-   - Initiates system shutdown.
+- **Intermission Handling**
+  - Optionally plays a Marine Aquarium screensaver between movies.
+  - Runs `$CurlRun3` (lighting control) at intermission or final movie.
 
-## Video List Text File
+- **Error Handling**
+  - Displays error messages if a movie fails to load or process.
+  - Pauses for user input if a fatal error occurs.
 
-This text file contains one moive per line. Each line needs the entire file name (Movie Name.mp4). Spaces in the file name are accepted.
+- **Shutdown Option**
+  - If `$EndOfNightShutDown` is set, the system shuts down after the last movie.
 
-## Video Screenshot and Display Format Generator
+---
 
-This PowerShell script automates taking screenshots of videos using [MPC-HC](https://mpc-hc.org/), then analyzes the resulting images to determine maximum scaled dimensions, and finally generates a visual display format image with red borders indicating letterboxing/pillarboxing.
+### 2. `Variables.ps1`
+Central configuration file for the movie night scripts.
 
-### Features
+- **Folder Paths**
+  - `$rootFolder` → Main directory (`D:\MovieNight`)
+  - `$movieFolder` → Movies folder
+  - `$clipsFolder` → Clips folder
+  - Paths for text lists: `MovieList.txt`, `_IntroClips.txt`, `_IntermissionClips.txt`, `_EndClips.txt`
 
-- Reads video filenames from `MovieList.txt`
-- Launches each video in MPC-HC
-- Takes a screenshot using simulated keyboard input
-- Scales each screenshot to fit within 1920×1080 bounding box
-- Tracks the maximum scaled width and height across all screenshots
-- Generates a `DisplayFormat.png` with:
-  - Green fill for active image area
-  - Red borders for unused space (top, bottom, or sides)
-- Deletes individual screenshots after analysis
+- **Playback Timing**
+  - `$MovieTimeOffSet` → Time (in seconds) before movie end to trigger `$CurlRun2`
+  - `$Intermission` → Duration of intermission (in seconds)
 
-### Configuration
+- **Optional Shutdown**
+  - `$EndOfNightShutDown` can be uncommented to enable auto-shutdown after all movies.
 
-- **Folders**:
-  - Movie source: `C:\Users\Schwoby\Videos\Movies`
-  - Working/output: `C:\Users\Schwoby\Videos`
-- **Input**:
-  - `MovieList.txt`: List of movie filenames, one per line
-- **Output**:
-  - Scaled screenshots: `Video1.png`, `Video2.png`, ...
-  - Final output image: `DisplayFormat.png`
+- **Lighting Controls**
+  - Example curl webhooks are provided for integration with Home Assistant:
+    - `$CurlRun1` → Pre-movie lighting
+    - `$CurlRun2` → Post-movie lighting
+    - `$CurlRun3Option1` → End-of-night lights off
+    - `$CurlRun3Option2` → Intermission lights
 
-### Screenshot Workflow
+---
 
-1. Starts each video in MPC-HC
-2. Waits for the window to be active
-3. Simulates:
-   - `Alt + I` to open the screenshot save dialog
-   - Filename entry and PNG format selection
-4. Saves screenshot to working folder
-5. Terminates MPC-HC after screenshot is taken
+### 3. `MovieList.txt`
+These are plain text files that define the playlist content for the movie night. Each file should list one filename per line.
 
-### Image Analysis & Output
+- **`MovieList.txt`** → The main list of movies to be played in order. *(Required: file must exist and contain at least one entry)*
 
-- Calculates scale factor for each screenshot to fit within 1920×1080
-- Logs original and scaled dimensions
-- Creates a green 1920×1080 image
-- Fills unused space with red to visualize borders
-- Saves result as `DisplayFormat.png`
-- Cleans up all individual screenshots
+---
 
-### Dependencies
+### 4. `_IntroClips.txt`, `_IntermissionClips.txt`, `_EndClips.txt`
+These are plain text files that define the playlist content for the movie night. Each file should list one filename per line.
 
-- [MPC-HC](https://mpc-hc.org/)
-- PowerShell
-- `System.Drawing` (GDI+)
-- `System.Windows.Forms` (for SendKeys)
+- **`_IntroClips.txt`** → A list of optional intro clips shown before each movie. *(Required as a text file, but video entries inside are optional)*
+- **`_IntermissionClips.txt`** → A list of optional intermission clips shown between movies. *(Required as a text file, but video entries inside are optional)*
+- **`_EndClips.txt`** → A list of optional closing clips shown after the final movie. *(Required as a text file, but video entries inside are optional)*
+
+⚠️ Even if you don’t plan to use intro, intermission, or end clips, the corresponding text files must still exist (they can be empty).
+
+---
+
+### 5. `_VideoFormat.ps1`
+Script to generate a **display format reference** for all listed movies.
+This script is **optional** and primarily assists with **projector aiming and screen setup** before movie night.
+
+- **Dependencies**
+  - Loads paths from `Variables.ps1`.
+  - Uses `mpc-hc64` for video playback and screenshots.
+  - Requires `System.Windows.Forms` and `System.Drawing`.
+
+- **Process**
+  1. Reads `MovieList.txt` for all movies.
+  2. Opens each movie in MPC-HC and saves a screenshot.
+  3. Analyzes image dimensions to calculate max scaled size that fits within a 1920x1080 box.
+  4. Generates a reference image (`_DisplayFormat.png`) with red/green borders showing safe display dimensions.
+  5. Deletes temporary screenshots after processing.
+
+- **Use Case**
+  - Ensures all movies display properly on the screen without uneven scaling or cropping.
+  - Provides a **visual guide** to help align the projector and verify aspect ratio before starting the event.
+
+---
+
+## 🎬 Typical Flow
+1. Run `_OutsideMovieNightScript.ps1`.
+2. Script loads movie list and optional intro/intermission/end clips.
+3. Plays intro → movie → intermission (or end clip).
+4. Lighting webhooks (`CurlRunX`) run at predefined times.
+5. Intermissions may show a screensaver.
+6. System optionally shuts down after the final movie.
+
+---
+
+## ✅ Requirements
+- Windows environment
+- [MPC-HC](https://mpc-hc.org/) (`mpc-hc64.exe` in PATH or same folder)
+- PowerShell 5+
+- Optional: Home Assistant (or equivalent) for lighting webhooks
 
 ## Disclaimer
 1. This is a personal project provided **"as-is"** with no warranty or guarantee of any kind. Use it at your own risk.
-2. This project is not affiliated with, endorsed by, or sponsored by Twitch Interactive, Inc. Twitch and all related trademarks are the property of their respective owners. Use of Twitch services is subject to Twitch's terms of service and licensing agreements. Users are responsible for complying with Twitch's policies when using this software.
+2. This project is not affiliated with, endorsed by, or sponsored by any movie studios, film producers, distributors, or other entities involved in the creation or distribution of films. All movies, clips, and related media are the property of their respective owners. Users are responsible for ensuring they have the proper rights and licenses to play any content with this software.
