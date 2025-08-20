@@ -5,9 +5,9 @@ $movieFolder = "D:\MovieNight\Movies"
 $movieListPath = "D:\MovieNight\Movies\MovieList.txt"
 
 $clipsFolder = "D:\MovieNight\Clips"
-$introClipListPath = "D:\MovieNight\Clips\_IntroClips.txt"
-$intermissionClipListPath = "D:\MovieNight\Clips\_IntermissionClips.txt"
-$endClipListPath = "D:\MovieNight\Clips\_EndClips.txt"
+$introClipListPath = "D:\MovieNight\Clips\IntroClips.txt"
+$intermissionClipListPath = "D:\MovieNight\Clips\IntermissionClips.txt"
+$endClipListPath = "D:\MovieNight\Clips\EndClips.txt"
 
 
 
