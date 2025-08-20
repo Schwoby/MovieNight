@@ -1,3 +1,6 @@
+# Load variables (assumes Variables.ps1 is in the same folder as this script)
+. "$PSScriptRoot\Variables.ps1"
+
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -11,17 +14,12 @@ public class User32 {
 
 Add-Type -AssemblyName System.Windows.Forms
 
-$rootFolder = "C:\Users\Schwoby\Videos"
-$moviesFolder = Join-Path $rootFolder "Movies"
-$movieListPath = Join-Path $rootFolder "MovieList.txt"
-$saveFolder = $rootFolder
-
 $movieFiles = @(Get-Content -Path $movieListPath)
 
 for ($i=0; $i -lt $movieFiles.Count; $i++) {
     $index = $i + 1
     $videoName = $movieFiles[$i]
-    $videoPath = Join-Path $moviesFolder $videoName
+    $videoPath = Join-Path $movieFolder $videoName
     if (-not (Test-Path $videoPath)) {
         Write-Host "File not found: $videoPath - skipping"
         continue
@@ -45,7 +43,7 @@ for ($i=0; $i -lt $movieFiles.Count; $i++) {
         [System.Windows.Forms.SendKeys]::SendWait("%i")   # Alt+I
         Start-Sleep -Milliseconds 500
 
-        $screenshotPath = Join-Path $saveFolder ("Video$index")
+        $screenshotPath = Join-Path $rootFolder ("Video$index")
         [System.Windows.Forms.SendKeys]::SendWait("$screenshotPath")
         Start-Sleep -Milliseconds 200
         [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
@@ -125,7 +123,7 @@ if ($borderHeight -gt 0) {
     $graphics.FillRectangle([System.Drawing.Brushes]::Red, 0, $maxBoxHeight - $borderHeight, $maxBoxWidth, $borderHeight)
 }
 
-$displayFormatPath = Join-Path $rootFolder "DisplayFormat.png"
+$displayFormatPath = Join-Path $rootFolder "_DisplayFormat.png"
 $finalImage.Save($displayFormatPath, [System.Drawing.Imaging.ImageFormat]::Png)
 $finalImage.Dispose()
 
