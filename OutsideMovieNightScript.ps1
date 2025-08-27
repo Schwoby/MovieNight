@@ -15,18 +15,18 @@ $IntermissionClips = Get-Content -Path $intermissionClipListPath
 $EndClips = Get-Content -Path $endClipListPath
 
 try {
-    $movies = @(Get-Content -Path $movieListPath)
-    $lastIndex = $movies.Count - 1
+ $movies = @(Get-Content -Path $movieListPath)
+ $lastIndex = $movies.Count - 1
 
 	&$CurlRun1
-    foreach ($i in 0..$lastIndex) {
+ foreach ($i in 0..$lastIndex) {
 		Clear-Host
-        $mainMovie = $movies[$i]
-        $isLast = ($i -eq $lastIndex)
+ $mainMovie = $movies[$i]
+ $isLast = ($i -eq $lastIndex)
 
-        try {
-            $file1 = if ($IntroClips) { Join-Path $clipsFolder (Get-Random -InputObject $IntroClips) } else { $null }
-            $file2 = Join-Path $movieFolder $mainMovie
+ try {
+ $file1 = if ($IntroClips) { Join-Path $clipsFolder (Get-Random -InputObject $IntroClips) } else { $null }
+ $file2 = Join-Path $movieFolder $mainMovie
 			if ($isLast) {
 				$CurlRun3 = $CurlRun3Option1
 				$file3 = if ($EndClips) { Join-Path $clipsFolder (Get-Random -InputObject $EndClips) } else { $null }
@@ -35,7 +35,7 @@ try {
 				$file3 = if ($IntermissionClips) { Join-Path $clipsFolder (Get-Random -InputObject $IntermissionClips) } else { $null }
 			}
 
-            # Launch MPC-HC once with all three files in one call and capture the process
+			# Launch MPC-HC once with all three files in one call and capture the process
 			$arguments = @(
 				@($file1, $file2, $file3) | Where-Object { $_ } | ForEach-Object { "`"$($_)`"" }
 			)
@@ -67,7 +67,7 @@ public class User32 {
 			if ($file2 -and (Test-Path $file2)) {
 				$folder = $shell.Namespace((Split-Path $file2))
 				$item = $folder.ParseName((Split-Path $file2 -Leaf))
-				$duration = $folder.GetDetailsOf($item, 27)  # 27 = Video Time Length
+				$duration = $folder.GetDetailsOf($item, 27) # 27 = Video Time Length
 				if ($duration -and $duration -match "(\d+):(\d+):(\d+)") {
 					$h = [int]$matches[1]
 					$m = [int]$matches[2]
@@ -81,25 +81,29 @@ public class User32 {
 				}
 				$totalSeconds = ($h * 3600 + $m * 60 + $s)
 			}
-			Write-Host "Playlist duration: $totalSeconds seconds"
+			Write-Host "Movie duration: $totalSeconds seconds"
 
-            # Sleep for duration of Videos
-            if ($totalSeconds -lt $MovieTimeOffSet) {
-                $MovieOffSet = $totalSeconds
-                $totalSeconds = 0
-            } else {
-                $totalSeconds = $totalSeconds - $MovieTimeOffSet
-                $MovieOffSet = $MovieTimeOffSet
+			# $totalSeconds from file2 has already been determined at this point
+			$MovieOffSet = 0
+			$waitBeforeCurl = 0
+
+			if ($totalSeconds -gt $MovieTimeOffSet) {
+				# Wait until (duration - offset), then run CurlRun2
+				$waitBeforeCurl = $totalSeconds - $MovieTimeOffSet
+				$MovieOffSet = $MovieTimeOffSet
 			}
-			Start-Sleep -Seconds 1
-            Write-Host "Main Play duration: $totalSeconds"
-            Start-Sleep -Seconds $totalSeconds
+			else {
+				# Movie is shorter than offset: run CurlRun2 as soon as file2 starts
+				$waitBeforeCurl = 1 # tiny wait to ensure playback actually started
+				$MovieOffSet = $totalSeconds
+			}
+			Write-Host "Main play wait before CurlRun2: $waitBeforeCurl seconds"
+			Start-Sleep -Seconds $waitBeforeCurl
 			&$CurlRun2
-            Write-Host "Offset duration: $MovieOffSet"
-            Write-Host ""
-            Start-Sleep -Seconds $MovieOffSet
+			Write-Host "Offset duration: $MovieOffSet seconds"
+			Start-Sleep -Seconds $MovieOffSet
 
-            # Wait for MPC-HC to exit naturally (end of playlist)
+			# Wait for MPC-HC to exit naturally (end of playlist)
 			while (-not $mpcProcess.HasExited) {
 				Start-Sleep -Seconds 1
 			}
@@ -129,16 +133,16 @@ public class User32 {
 			if ($useScreensaver) {
 				Stop-Process -Name "MarineAquarium3.scr" -ErrorAction SilentlyContinue
 			}
-        }
-        catch {
-            Write-Host ("Error processing movie '{0}' at index {1}:" -f $mainMovie, $i)
-            Write-Host $_
-        }
-    }
+		}
+		catch {
+			Write-Host ("Error processing movie '{0}' at index {1}:" -f $mainMovie, $i)
+			Write-Host $_
+		}
+	}
 }
 catch {
-    Write-Host "Fatal error:"
-    Write-Host $_
+ Write-Host "Fatal error:"
+ Write-Host $_
 	Read-Host # Pauses until Enter is pressed
 }
 finally {
