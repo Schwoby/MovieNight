@@ -20,6 +20,7 @@ try {
 
 	&$CurlRun1
     foreach ($i in 0..$lastIndex) {
+		Clear-Host
         $mainMovie = $movies[$i]
         $isLast = ($i -eq $lastIndex)
 
@@ -41,13 +42,31 @@ try {
 			$arguments += "/play /fullscreen /close"
 			$mpcProcess = Start-Process "mpc-hc64" -ArgumentList $arguments -PassThru
 
-            # Calculate and display total playlist duration
+# Wait until the window is available
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class User32 {
+	[DllImport("user32.dll", SetLastError = true)]
+	public static extern bool IsWindow(IntPtr hWnd);
+}
+"@
+
+			while (-not $mpcProcess.MainWindowHandle -or -not [User32]::IsWindow($mpcProcess.MainWindowHandle)) {
+				Start-Sleep -Seconds 1
+				$mpcProcess.Refresh() # refresh the process info to update MainWindowHandle
+			}
+
+			# Activate the window
+			Add-Type -AssemblyName Microsoft.VisualBasic
+			[Microsoft.VisualBasic.Interaction]::AppActivate($mpcProcess.Id)
+
+			# Calculate and display total playlist duration
 			$shell = New-Object -ComObject Shell.Application
-			$items = @($file1, $file2, $file3) | Where-Object { $_ -and (Test-Path $_) }
 			$totalSeconds = 0
-			foreach ($file in $items) {
-				$folder = $shell.Namespace((Split-Path $file))
-				$item = $folder.ParseName((Split-Path $file -Leaf))
+			if ($file2 -and (Test-Path $file2)) {
+				$folder = $shell.Namespace((Split-Path $file2))
+				$item = $folder.ParseName((Split-Path $file2 -Leaf))
 				$duration = $folder.GetDetailsOf($item, 27)  # 27 = Video Time Length
 				if ($duration -and $duration -match "(\d+):(\d+):(\d+)") {
 					$h = [int]$matches[1]
@@ -60,9 +79,9 @@ try {
 				} else {
 					$h = $m = $s = 0
 				}
-				$totalSeconds += ($h * 3600 + $m * 60 + $s)
+				$totalSeconds = ($h * 3600 + $m * 60 + $s)
 			}
-            Write-Host "Playlist duration: $totalSeconds seconds"
+			Write-Host "Playlist duration: $totalSeconds seconds"
 
             # Sleep for duration of Videos
             if ($totalSeconds -lt $MovieTimeOffSet) {
@@ -85,15 +104,30 @@ try {
 				Start-Sleep -Seconds 1
 			}
 
-			# Intermission
-			if (Test-Path "C:\Windows\System32\MarineAquarium3.scr") {
+			# Intermission with an Enter keypress interrupt
+			$useScreensaver = Test-Path "C:\Windows\System32\MarineAquarium3.scr"
+			if ($useScreensaver) {
 				Start-Process "C:\Windows\System32\MarineAquarium3.scr"
-				Start-Sleep -Seconds $Intermission
-				&$CurlRun3
+			}
+			# Clear all buffered keypresses before starting
+			while ([console]::KeyAvailable) {
+				[console]::ReadKey($true) | Out-Null
+			}
+			$elapsed = 0
+			while ($elapsed -lt $Intermission) {
+				Clear-Host
+				$remaining = $Intermission - $elapsed
+				Write-Host "$remaining seconds remaining in intermission..."
+				Write-Host "Press & hold Enter key to interrupt..."
+				Start-Sleep -Seconds 1
+				$elapsed += 1
+				if ([console]::KeyAvailable) {
+					if ([console]::ReadKey($true).Key -eq 'Enter') { break }
+				}
+			}
+			&$CurlRun3
+			if ($useScreensaver) {
 				Stop-Process -Name "MarineAquarium3.scr" -ErrorAction SilentlyContinue
-			} else {
-				Start-Sleep -Seconds $Intermission
-				&$CurlRun3
 			}
         }
         catch {
