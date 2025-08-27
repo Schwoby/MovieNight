@@ -6,10 +6,6 @@ $CurlRun3Option2 = { }
 
 # Load variables (assumes Variables.ps1 is in the same folder as this script)
 . "$PSScriptRoot\Variables.ps1"
-
-# Minimize All Windows
-$Shell = New-Object -ComObject "Shell.Application"
-$Shell.MinimizeAll()
 $IntroClips = Get-Content -Path $introClipListPath
 $IntermissionClips = Get-Content -Path $intermissionClipListPath
 $EndClips = Get-Content -Path $endClipListPath
@@ -61,43 +57,41 @@ public class User32 {
 			Add-Type -AssemblyName Microsoft.VisualBasic
 			[Microsoft.VisualBasic.Interaction]::AppActivate($mpcProcess.Id)
 
-			# Calculate and display total playlist duration
-			$shell = New-Object -ComObject Shell.Application
-			$totalSeconds = 0
-			if ($file2 -and (Test-Path $file2)) {
-				$folder = $shell.Namespace((Split-Path $file2))
-				$item = $folder.ParseName((Split-Path $file2 -Leaf))
-				$duration = $folder.GetDetailsOf($item, 27) # 27 = Video Time Length
-				if ($duration -and $duration -match "(\d+):(\d+):(\d+)") {
-					$h = [int]$matches[1]
-					$m = [int]$matches[2]
-					$s = [int]$matches[3]
-				} elseif ($duration -and $duration -match "(\d+):(\d+)") {
-					$h = 0
-					$m = [int]$matches[1]
-					$s = [int]$matches[2]
-				} else {
-					$h = $m = $s = 0
-				}
-				$totalSeconds = ($h * 3600 + $m * 60 + $s)
-			}
-			Write-Host "Movie duration: $totalSeconds seconds"
+			function Get-VideoDurationSeconds($path) {
+				if (-not (Test-Path $path)) { return 0 }
+				$shell  = New-Object -ComObject Shell.Application
+				$folder = $shell.Namespace((Split-Path $path))
+				$item   = $folder.ParseName((Split-Path $path -Leaf))
+				$duration = $folder.GetDetailsOf($item, 27) # 27 = Video Length
 
-			# $totalSeconds from file2 has already been determined at this point
+				if ($duration -and $duration -match "(\d+):(\d+):(\d+)") {
+					$h = [int]$matches[1]; $m = [int]$matches[2]; $s = [int]$matches[3]
+				} elseif ($duration -and $duration -match "(\d+):(\d+)") {
+					$h = 0; $m = [int]$matches[1]; $s = [int]$matches[2]
+				} else {
+					return 0
+				}
+				return ($h * 3600 + $m * 60 + $s)
+			}
+
+			# Get video durations
+			$file1Seconds = if ($file1) { Get-VideoDurationSeconds $file1 } else { 0 }
+			$file2Seconds = if ($file2) { Get-VideoDurationSeconds $file2 } else { 0 }
+			Write-Host "Movie duration: $file2Seconds seconds"
+
+			# Calculate wait time
 			$MovieOffSet = 0
 			$waitBeforeCurl = 0
-
-			if ($totalSeconds -gt $MovieTimeOffSet) {
-				# Wait until (duration - offset), then run CurlRun2
-				$waitBeforeCurl = $totalSeconds - $MovieTimeOffSet
-				$MovieOffSet = $MovieTimeOffSet
+			if ($file2Seconds -gt $MovieTimeOffSet) {
+				# Normal case: trigger ($MovieTimeOffSet) before end of file2
+				$waitBeforeCurl = $file1Seconds + ($file2Seconds - $MovieTimeOffSet)
+				$MovieOffSet    = $MovieTimeOffSet
 			}
 			else {
-				# Movie is shorter than offset: run CurlRun2 as soon as file2 starts
-				$waitBeforeCurl = 1 # tiny wait to ensure playback actually started
-				$MovieOffSet = $totalSeconds
+				# Offset too big for movie length: run ASAP after file2 starts
+				$waitBeforeCurl = $file1Seconds + 1  # safety +1 second
+				$MovieOffSet    = $file2Seconds
 			}
-			Write-Host "Main play wait before CurlRun2: $waitBeforeCurl seconds"
 			Start-Sleep -Seconds $waitBeforeCurl
 			&$CurlRun2
 			Write-Host "Offset duration: $MovieOffSet seconds"
